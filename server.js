@@ -20,6 +20,8 @@ const config = {
   requestIntervalMs: num('REQUEST_INTERVAL_MS', 150),
   concurrency: num('CONCURRENCY', 4),
   scanEveryMinutes: num('SCAN_EVERY_MINUTES', 360),
+  // Optional. With a key, each image is marked as listed or not on bestbuy.com.
+  apiKey: process.env.BESTBUY_API_KEY || '',
 };
 
 const store = new Store(config.dataFile);
@@ -51,10 +53,12 @@ function json(res, status, body) {
 
 function listImages(url) {
   const onlyNew = url.searchParams.get('all') !== '1';
+  const onlyUnlisted = url.searchParams.get('unlisted') === '1';
   const limit = Math.min(Number(url.searchParams.get('limit')) || 300, 2000);
   const rows = [];
   for (const [sku, img] of Object.entries(store.images)) {
     if (onlyNew && !img.isNew) continue;
+    if (onlyUnlisted && img.listed !== false) continue;
     rows.push({ sku: Number(sku), ...img });
   }
   rows.sort((a, b) => b.firstSeen - a.firstSeen || b.sku - a.sku);
@@ -71,13 +75,18 @@ function listImages(url) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/api/status') {
-    const counts = { new: 0, baseline: 0 };
-    for (const img of Object.values(store.images)) counts[img.isNew ? 'new' : 'baseline']++;
+    const counts = { new: 0, baseline: 0, unlisted: 0 };
+    for (const img of Object.values(store.images)) {
+      counts[img.isNew ? 'new' : 'baseline']++;
+      if (img.listed === false) counts.unlisted++;
+    }
     return json(res, 200, {
       running: scanner.running,
       progress: scanner.current,
       lastScan: store.scans.at(-1) || null,
       lastError: scanner.lastError,
+      catalogEnabled: Boolean(config.apiKey),
+      catalogError: scanner.catalogError,
       nextScanAt,
       window: windowFor(store, config),
       counts,

@@ -2,6 +2,7 @@
 // which ones have an image now.
 
 const bestbuy = require('./bestbuy');
+const catalog = require('./catalog');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -31,22 +32,33 @@ class Scanner {
     this.now = now;
     this.current = null; // progress of the running scan
     this.lastError = null;
+    this.catalogError = null;
   }
 
   get running() {
     return this.current !== null;
   }
 
+  // A catalog failure must not throw away the scan that just finished.
+  async refreshCatalog() {
+    if (!this.config.apiKey) return;
+    try {
+      await catalog.refresh(this.store, this.config.apiKey, { fetchImpl: this.fetchImpl, now: this.now });
+      this.catalogError = null;
+    } catch (err) {
+      this.catalogError = err.message;
+    }
+  }
+
   async scan() {
     if (this.running) return null;
     const { store, config } = this;
-    const { from, to } = windowFor(store, config);
     const scan = {
       id: (store.scans.at(-1)?.id || 0) + 1,
       startedAt: this.now(),
       finishedAt: null,
-      from,
-      to,
+      from: 0,
+      to: 0,
       checked: 0,
       newImages: 0,
       baselineImages: 0,
@@ -57,7 +69,15 @@ class Scanner {
     this.lastError = null;
 
     try {
-      const placeholder = await bestbuy.head(bestbuy.PLACEHOLDER_SKU, this.fetchImpl);
+      const placeholders = bestbuy.placeholderEtags(await bestbuy.head(bestbuy.PLACEHOLDER_SKU, this.fetchImpl));
+      // Drop records an older version (or a newly listed stand-in) let through.
+      for (const [sku, img] of Object.entries(store.images)) {
+        if (img.etag && !placeholders.has(img.etag)) continue;
+        delete store.images[sku];
+        if (img.etag) store.missing.add(Number(sku));
+      }
+      const { from, to } = windowFor(store, config);
+      Object.assign(scan, { from, to });
       const todo = [];
       for (let sku = from; sku <= to; sku++) if (!store.images[sku]) todo.push(sku);
       this.current.total = todo.length;
@@ -75,10 +95,10 @@ class Scanner {
           if (wait > 0) await sleep(wait);
           try {
             const info = await bestbuy.head(sku, this.fetchImpl);
-            if (bestbuy.hasImage(info, placeholder)) {
+            if (bestbuy.hasImage(info, placeholders)) {
               const isNew = store.missing.has(sku);
               store.missing.delete(sku);
-              store.images[sku] = { firstSeen: this.now(), scanId: scan.id, isNew, bytes: info.bytes };
+              store.images[sku] = { firstSeen: this.now(), scanId: scan.id, isNew, etag: info.etag };
               if (isNew) scan.newImages++;
               else scan.baselineImages++;
             } else {
@@ -95,6 +115,7 @@ class Scanner {
       };
       await Promise.all(Array.from({ length: config.concurrency }, worker));
       if (blocked) throw blocked;
+      await this.refreshCatalog();
     } catch (err) {
       scan.stopped = err.message;
       this.lastError = err.message;

@@ -1,6 +1,6 @@
 // Scan history kept in one JSON file.
 //
-// images:  sku -> { firstSeen, scanId, isNew, bytes }
+// images:  sku -> { firstSeen, scanId, isNew, etag }
 // missing: SKUs that have been checked and had no image. An image that shows
 //          up for a SKU in this set is a genuinely new upload; an image found
 //          on a SKU's very first check is only "already there" (baseline).

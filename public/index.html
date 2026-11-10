@@ -11,6 +11,7 @@
     :root { --bg:#0f1115; --card:#191c22; --text:#eceef2; --muted:#98a2b3; --line:#2a2f38; --accent:#6ea0ff; }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui, sans-serif; }
   header { padding:20px 16px 12px; max-width:1200px; margin:0 auto; }
   h1 { margin:0 0 4px; font-size:22px; }
@@ -38,6 +39,7 @@
   <div class="bar">
     <button id="scan">Scan now</button>
     <label><input type="checkbox" id="all"> Also show images that were already there on first check</label>
+    <label id="unlistedLabel" hidden><input type="checkbox" id="unlisted" checked> Only products not yet on bestbuy.com</label>
   </div>
   <progress id="progress" max="1" value="0" hidden></progress>
 </header>
@@ -46,6 +48,7 @@
 const $ = (id) => document.getElementById(id);
 const time = (t) => new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 let lastKey = '';
+let unlistedOnly = false;
 
 async function refresh() {
   const s = await (await fetch('/api/status')).json();
@@ -61,15 +64,24 @@ async function refresh() {
     if (s.nextScanAt) parts.push(`next scan ${time(s.nextScanAt)}`);
   }
   parts.push(`${s.counts.new} new images tracked in total`);
-  $('status').innerHTML = parts.join(' · ') + (s.lastError ? `<div class="error">Last scan stopped early: ${s.lastError}</div>` : '');
+  if (s.catalogEnabled) parts.push(`${s.counts.unlisted} not yet on bestbuy.com`);
+  $('status').innerHTML = parts.join(' · ') +
+    (s.lastError ? `<div class="error">Last scan stopped early: ${s.lastError}</div>` : '') +
+    (s.catalogError ? `<div class="error">Could not check which products are listed: ${s.catalogError}</div>` : '') +
+    (s.catalogEnabled ? '' : '<div>Set BESTBUY_API_KEY to filter down to products not yet on bestbuy.com.</div>');
   $('scan').disabled = s.running;
+  $('unlistedLabel').hidden = !s.catalogEnabled;
+  unlistedOnly = s.catalogEnabled && $('unlisted').checked;
 
-  const key = [s.counts.new, s.counts.baseline, $('all').checked].join();
+  const key = [s.counts.new, s.counts.baseline, s.counts.unlisted, $('all').checked, unlistedOnly].join();
   if (key !== lastKey) { lastKey = key; await loadImages(s); }
 }
 
 async function loadImages(s) {
-  const data = await (await fetch('/api/images' + ($('all').checked ? '?all=1' : ''))).json();
+  const query = new URLSearchParams();
+  if ($('all').checked) query.set('all', '1');
+  if (unlistedOnly) query.set('unlisted', '1');
+  const data = await (await fetch('/api/images?' + query)).json();
   const main = $('main');
   main.textContent = '';
   if (!data.images.length) {
@@ -90,7 +102,10 @@ async function loadImages(s) {
     for (const img of imgs) {
       const a = document.createElement('a');
       a.className = 'card'; a.href = img.product; a.target = '_blank'; a.rel = 'noreferrer';
-      a.innerHTML = `<img loading="lazy" src="${img.image}" alt="SKU ${img.sku}"><div>SKU ${img.sku}<small>${img.isNew ? 'First seen ' + time(img.firstSeen) : 'Already there'}</small></div>`;
+      a.innerHTML = `<img loading="lazy" src="${img.image}" alt="SKU ${img.sku}"><div>SKU ${img.sku}<small>${img.isNew ? 'First seen ' + time(img.firstSeen) : 'Already there'}</small><small class="listing"></small></div>`;
+      // Product names come from Best Buy, so they go in as text, never as HTML.
+      a.querySelector('.listing').textContent =
+        img.listed === false ? 'Not on bestbuy.com yet' : img.listed ? img.name || 'Listed on bestbuy.com' : '';
       grid.append(a);
     }
     main.append(h, grid);
@@ -99,6 +114,7 @@ async function loadImages(s) {
 
 $('scan').onclick = async () => { await fetch('/api/scan', { method: 'POST' }); refresh(); };
 $('all').onchange = refresh;
+$('unlisted').onchange = refresh;
 refresh();
 setInterval(refresh, 4000);
 </script>

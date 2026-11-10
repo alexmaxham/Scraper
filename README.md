@@ -10,9 +10,23 @@ A CDN can't be asked "what's new", so the scanner guesses URLs. Best Buy's produ
 https://pisces.bbystatic.com/image2/BestBuy_US/images/products/<first 4 digits>/<SKU>_sd.jpg
 ```
 
-The server answers 200 for every SKU. A SKU with no image returns a fixed PNG placeholder; a real one returns a JPEG. Best Buy hands out SKU numbers in order. In November 2026 the newest were around 13,250,000, with images on roughly 9 in 10 SKUs below that point and almost none above it. Each scan walks a window of SKU numbers around that edge and records which have an image; the window moves up as new images are found.
+The server answers 200 for every SKU; one with no image gets a stand-in picture ("Image Unavailable", or a grey clapperboard for movies). The server re-encodes pictures per request, so size and format can't tell them apart, but the ETag header can: the stand-ins have fixed ETags, listed in `src/bestbuy.js`. Best Buy hands out SKU numbers in order. In November 2026 the newest were around 13,250,000, with images on roughly 9 in 10 SKUs below that point and almost none above it. Each scan walks a window of SKU numbers around that edge and records which have an image; the window moves up as new images are found.
 
 The CDN's `Last-Modified` header is not a real upload date, so "new" means: this SKU was checked before and had no image, and now it does. Images found on a SKU's first check are stored as "already there" and hidden by default. The first scan is therefore all baseline; new images show up from the second scan on.
+
+## Only products not yet announced
+
+An image alone doesn't say whether the product is public. With a key for Best Buy's official Products API, each scan also asks which SKUs are in the public catalog; the page then shows only images whose product is not on bestbuy.com yet, and keeps re-checking until it is.
+
+Get a free key at https://developer.bestbuy.com and start with:
+
+```
+BESTBUY_API_KEY=yourkey npm start
+```
+
+On Windows Command Prompt: `set BESTBUY_API_KEY=yourkey` and then `npm start`.
+
+Without a key everything else works; the filter just isn't offered.
 
 ## Run it
 
@@ -37,6 +51,7 @@ Set as environment variables.
 | `REQUEST_INTERVAL_MS` | 150 | Minimum gap between requests |
 | `CONCURRENCY` | 4 | Requests in flight at once |
 | `SCAN_EVERY_MINUTES` | 360 | Time between scans |
+| `BESTBUY_API_KEY` | none | Enables the not-yet-announced filter |
 | `DATA_FILE` | `data/bestbuy.json` | Where results are stored |
 
 A full default window is about 20,000 requests. A scan stops immediately if Best Buy answers 403 or 429.
