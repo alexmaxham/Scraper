@@ -6,29 +6,51 @@
 <meta name="referrer" content="no-referrer">
 <title>Best Buy new images</title>
 <style>
-  :root { --bg:#f6f7f9; --card:#fff; --text:#16181d; --muted:#667085; --line:#e3e6eb; --accent:#0046be; }
+  :root { --bg:#f6f7f9; --card:#fff; --text:#16181d; --muted:#667085; --line:#e3e6eb; --accent:#0046be; --hot:#c4320a; --hot-bg:#fff4ed; --ok:#067647; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#0f1115; --card:#191c22; --text:#eceef2; --muted:#98a2b3; --line:#2a2f38; --accent:#6ea0ff; }
+    :root { --bg:#0f1115; --card:#191c22; --text:#eceef2; --muted:#98a2b3; --line:#2a2f38; --accent:#6ea0ff; --hot:#fd8450; --hot-bg:#2b1a12; --ok:#47cd89; }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui, sans-serif; }
   header { padding:20px 16px 12px; max-width:1200px; margin:0 auto; }
   h1 { margin:0 0 4px; font-size:22px; }
   #status { color:var(--muted); }
-  .bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:14px; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; margin-top:14px; }
   button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
   button:disabled { opacity:.5; cursor:default; }
   label { color:var(--muted); display:flex; gap:6px; align-items:center; }
+  select { font:inherit; padding:5px 8px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--text); }
   progress { width:100%; height:6px; margin-top:12px; }
   main { max-width:1200px; margin:0 auto; padding:8px 16px 40px; }
   h2 { font-size:14px; color:var(--muted); font-weight:600; margin:22px 0 10px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; text-decoration:none; color:inherit; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; color:inherit; cursor:pointer; text-align:left; padding:0; font:inherit; position:relative; }
+  .card:focus-visible { outline:2px solid var(--accent); }
   .card img { width:100%; aspect-ratio:1; object-fit:contain; background:#fff; display:block; }
-  .card div { padding:8px 10px; font-size:13px; }
+  .card .body { padding:8px 10px; font-size:13px; }
+  .card .title { font-weight:600; overflow-wrap:anywhere; }
   .card small { color:var(--muted); display:block; }
+  .score { position:absolute; top:8px; right:8px; min-width:26px; padding:2px 7px; border-radius:20px; font-size:12px; font-weight:700; background:var(--card); border:1px solid var(--line); color:var(--muted); text-align:center; }
+  .score.hot { background:var(--hot-bg); border-color:var(--hot); color:var(--hot); }
+  .tag { display:inline-block; font-size:11px; font-weight:600; padding:1px 6px; border-radius:4px; margin:2px 4px 2px 0; border:1px solid var(--line); color:var(--muted); }
+  .tag.reveal { border-color:var(--hot); color:var(--hot); }
+  .tag.pulled { border-color:#d92d20; color:#d92d20; }
   .empty { color:var(--muted); padding:40px 0; text-align:center; }
   .error { color:#d92d20; }
+  dialog { width:min(960px, calc(100vw - 32px)); max-height:calc(100vh - 32px); border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--text); padding:0; }
+  dialog::backdrop { background:rgba(0,0,0,.5); }
+  .detail { padding:18px; }
+  .detail h3 { margin:0 28px 4px 0; font-size:18px; overflow-wrap:anywhere; }
+  .detail .close { position:absolute; top:10px; right:10px; background:none; border:none; color:var(--muted); font-size:22px; padding:4px 10px; }
+  .detail dl { display:grid; grid-template-columns:max-content 1fr; gap:4px 14px; margin:12px 0; font-size:14px; }
+  .detail dt { color:var(--muted); }
+  .detail dd { margin:0; overflow-wrap:anywhere; }
+  .views { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; margin-top:12px; }
+  .views a { display:block; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff; }
+  .views img { width:100%; aspect-ratio:1; object-fit:contain; display:block; }
+  .views span { display:block; font-size:12px; color:#667085; padding:4px 6px; background:var(--card); }
+  .detail a { color:var(--accent); }
 </style>
 </head>
 <body>
@@ -37,68 +59,156 @@
   <div id="status">Loading…</div>
   <div class="bar">
     <button id="scan">Scan now</button>
-    <label><input type="checkbox" id="all"> Also show images that were already there on first check</label>
+    <label>Sort <select id="sort"><option value="newest">Newest first</option><option value="score">Most newsworthy first</option></select></label>
+    <label id="minScoreLabel" hidden>Show <select id="minScore"><option value="0">Everything</option><option value="3">Score 3 and up</option><option value="4">Score 4 and up</option><option value="5">Only 5s</option></select></label>
+    <label><input type="checkbox" id="all"> Include pictures that were already there and holding pictures</label>
+    <label id="unlistedLabel" hidden><input type="checkbox" id="unlisted" checked> Only products not yet on bestbuy.com</label>
   </div>
   <progress id="progress" max="1" value="0" hidden></progress>
 </header>
 <main id="main"></main>
+<dialog id="dialog"><div class="detail" id="detail"></div></dialog>
 <script>
 const $ = (id) => document.getElementById(id);
 const time = (t) => new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+// Text from Best Buy and from AI goes into the page as text, never as HTML.
+const el = (tag, props = {}, ...children) => {
+  const node = Object.assign(document.createElement(tag), props);
+  for (const c of children) if (c != null && c !== false) node.append(c);
+  return node;
+};
+const VIEW_NAMES = { _sd: 'Main', _rd: 'Right', _bd: 'Back', ld: 'Left' };
+const viewName = (suffix) => VIEW_NAMES[suffix] || suffix.replace(/^cv(\d+)d$/, 'View $1');
 let lastKey = '';
+let unlistedOnly = false;
+let images = [];
+
+function title(img) {
+  const t = img.triage;
+  if (t && !t.is_placeholder && t.product) return [t.brand, t.product].filter(Boolean).join(' ');
+  return img.listed && img.name ? img.name : `SKU ${img.sku}`;
+}
+
+function tags(img) {
+  const out = [];
+  if (img.removedAt) out.push(el('span', { className: 'tag pulled', textContent: 'Pulled ' + time(img.removedAt) }));
+  if (img.holding) out.push(el('span', { className: 'tag', textContent: 'Holding picture: ' + img.holding }));
+  else if (img.event === 'revealed') {
+    const was = [...img.history].reverse().find((h) => h.holding);
+    out.push(el('span', { className: 'tag reveal', textContent: 'Revealed' + (was ? ' (was ' + was.holding + ')' : '') }));
+  } else if (img.event === 'changed') out.push(el('span', { className: 'tag', textContent: 'Picture changed' }));
+  else if (img.event === 'new') out.push(el('span', { className: 'tag', textContent: 'New' }));
+  if (img.listed === false) out.push(el('span', { className: 'tag', textContent: 'Not on bestbuy.com yet' }));
+  return out;
+}
 
 async function refresh() {
   const s = await (await fetch('/api/status')).json();
   const parts = [];
   if (s.running && s.progress) {
     const p = s.progress;
-    parts.push(`Scanning SKUs ${p.from.toLocaleString()}–${p.to.toLocaleString()}: ${p.checked.toLocaleString()} of ${p.total.toLocaleString()} checked, ${p.newImages} new so far`);
+    const done = p.phase === 'checking SKUs' ? p.checked : p.done;
+    parts.push(p.phase === 'checking SKUs'
+      ? `Checking SKUs ${p.from.toLocaleString()}–${p.to.toLocaleString()}: ${p.checked.toLocaleString()} of ${p.total.toLocaleString()}, ${p.newImages} new and ${p.revealed} revealed so far`
+      : `${p.phase[0].toUpperCase() + p.phase.slice(1)}: ${p.done} of ${p.total}`);
     $('progress').hidden = false;
-    $('progress').value = p.total ? p.checked / p.total : 0;
+    $('progress').value = p.total ? done / p.total : 0;
   } else {
     $('progress').hidden = true;
-    if (s.lastScan) parts.push(`Last scan finished ${time(s.lastScan.finishedAt)} and found ${s.lastScan.newImages} new`);
+    if (s.lastScan) parts.push(`Last scan ${time(s.lastScan.finishedAt)}: ${s.lastScan.newImages} new, ${s.lastScan.revealed} revealed`);
     if (s.nextScanAt) parts.push(`next scan ${time(s.nextScanAt)}`);
   }
-  parts.push(`${s.counts.new} new images tracked in total`);
-  $('status').innerHTML = parts.join(' · ') + (s.lastError ? `<div class="error">Last scan stopped early: ${s.lastError}</div>` : '');
+  const c = s.counts;
+  parts.push(`${c.events} to look at`, `${c.waiting} SKUs on a holding picture`);
+  if (c.pulled) parts.push(`${c.pulled} pulled`);
+  if (s.catalogEnabled) parts.push(`${c.unlisted} not yet on bestbuy.com`);
+  const notes = [];
+  if (s.lastError) notes.push(el('div', { className: 'error', textContent: 'Last scan stopped early: ' + s.lastError }));
+  if (s.triageError) notes.push(el('div', { className: 'error', textContent: 'AI description failed: ' + s.triageError }));
+  if (s.catalogError) notes.push(el('div', { className: 'error', textContent: 'Could not check which products are listed: ' + s.catalogError }));
+  if (!s.aiEnabled) notes.push(el('div', { textContent: 'Set ANTHROPIC_API_KEY to have each new picture described and scored.' }));
+  if (!s.catalogEnabled) notes.push(el('div', { textContent: 'Set BESTBUY_API_KEY to filter down to products not yet on bestbuy.com.' }));
+  $('status').replaceChildren(parts.join(' · '), ...notes);
   $('scan').disabled = s.running;
+  $('unlistedLabel').hidden = !s.catalogEnabled;
+  $('minScoreLabel').hidden = !s.aiEnabled;
+  unlistedOnly = s.catalogEnabled && $('unlisted').checked;
 
-  const key = [s.counts.new, s.counts.baseline, $('all').checked].join();
-  if (key !== lastKey) { lastKey = key; await loadImages(s); }
+  const key = [c.events, c.baseline, c.waiting, c.pulled, c.unlisted, c.described, s.running && s.progress?.phase,
+    $('all').checked, unlistedOnly, $('sort').value, $('minScore').value].join();
+  if (key !== lastKey) { lastKey = key; await loadImages(); }
 }
 
-async function loadImages(s) {
-  const data = await (await fetch('/api/images' + ($('all').checked ? '?all=1' : ''))).json();
+async function loadImages() {
+  const query = new URLSearchParams({ sort: $('sort').value });
+  if ($('all').checked) query.set('all', '1');
+  if (unlistedOnly) query.set('unlisted', '1');
+  if (!$('minScoreLabel').hidden && $('minScore').value !== '0') query.set('minScore', $('minScore').value);
+  const data = await (await fetch('/api/images?' + query)).json();
+  images = data.images;
   const main = $('main');
   main.textContent = '';
-  if (!data.images.length) {
-    main.innerHTML = `<div class="empty">No new images yet. The first scan of a SKU range only records what is already on the server; an image counts as new when it appears on a later scan.</div>`;
+  if (!images.length) {
+    main.append(el('div', { className: 'empty', textContent: 'Nothing to show yet. The first scan of a SKU range only records what is already there; pictures count as new or revealed when they appear or change on a later scan.' }));
     return;
   }
+  const byScore = $('sort').value === 'score';
   const groups = new Map();
-  for (const img of data.images) {
-    const day = new Date(img.firstSeen).toLocaleDateString([], { dateStyle: 'full' });
-    if (!groups.has(day)) groups.set(day, []);
-    groups.get(day).push(img);
+  for (const img of images) {
+    const key = byScore
+      ? (img.triage ? `Score ${img.triage.newsworthiness}` : 'Not scored yet')
+      : new Date(img.eventAt || img.firstSeen).toLocaleDateString([], { dateStyle: 'full' });
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(img);
   }
-  for (const [day, imgs] of groups) {
-    const h = document.createElement('h2');
-    h.textContent = `${day} — ${imgs.length}`;
-    const grid = document.createElement('div');
-    grid.className = 'grid';
+  for (const [key, imgs] of groups) {
+    const grid = el('div', { className: 'grid' });
     for (const img of imgs) {
-      const a = document.createElement('a');
-      a.className = 'card'; a.href = img.product; a.target = '_blank'; a.rel = 'noreferrer';
-      a.innerHTML = `<img loading="lazy" src="${img.image}" alt="SKU ${img.sku}"><div>SKU ${img.sku}<small>${img.isNew ? 'First seen ' + time(img.firstSeen) : 'Already there'}</small></div>`;
-      grid.append(a);
+      const n = img.triage?.newsworthiness;
+      const card = el('button', { className: 'card', type: 'button', onclick: () => openDetail(img) },
+        el('img', { loading: 'lazy', src: img.thumbnail, alt: title(img) }),
+        n ? el('span', { className: 'score' + (n >= 4 ? ' hot' : ''), textContent: n, title: 'Newsworthiness (1–5)' }) : null,
+        el('div', { className: 'body' },
+          el('div', { className: 'title', textContent: title(img) }),
+          el('small', { textContent: `SKU ${img.sku} · ${img.files.length ? img.files.length + ' saved' : 'not saved yet'}` }),
+          el('div', {}, ...tags(img))));
+      grid.append(card);
     }
-    main.append(h, grid);
+    main.append(el('h2', { textContent: `${key} — ${imgs.length}` }), grid);
   }
+}
+
+function openDetail(img) {
+  const t = img.triage;
+  const rows = [
+    ['SKU', img.sku],
+    ['First seen', time(img.firstSeen)],
+    img.eventAt && ['Last change', time(img.eventAt)],
+    t && !t.is_placeholder && ['Category', t.category],
+    t && t.visible_text && ['Text in picture', t.visible_text],
+    t && ['Newsworthiness', `${t.newsworthiness} of 5 — ${t.reason}`],
+    img.listed && ['On bestbuy.com', img.name || 'Yes'],
+    img.listed === false && ['On bestbuy.com', 'Not yet'],
+    img.history.length && ['Earlier pictures', img.history.map((h) => `${h.holding || 'product picture'} until ${time(h.until)}`).join('; ')],
+  ].filter(Boolean);
+  const files = [...img.files].sort((a, b) => (a.etag === img.etag ? 0 : 1) - (b.etag === img.etag ? 0 : 1));
+  $('detail').replaceChildren(
+    el('button', { className: 'close', type: 'button', textContent: '×', ariaLabel: 'Close', onclick: () => $('dialog').close() }),
+    el('h3', { textContent: title(img) }),
+    el('div', {}, ...tags(img)),
+    el('dl', {}, ...rows.flatMap(([k, v]) => [el('dt', { textContent: k }), el('dd', { textContent: v })])),
+    el('a', { href: img.product, target: '_blank', rel: 'noreferrer', textContent: 'Search bestbuy.com for this SKU' }),
+    files.length
+      ? el('div', { className: 'views' }, ...files.map((f) => el('a', { href: f.url, target: '_blank' },
+          el('img', { loading: 'lazy', src: f.url, alt: viewName(f.suffix) }),
+          el('span', { textContent: viewName(f.suffix) + (f.etag === img.etag || f.suffix !== '_sd' ? '' : ' (earlier version)') + ' · saved ' + time(f.savedAt) }))))
+      : el('p', { textContent: 'No copies saved yet; they are saved at the end of the scan that finds the picture.' }));
+  $('dialog').showModal();
 }
 
 $('scan').onclick = async () => { await fetch('/api/scan', { method: 'POST' }); refresh(); };
-$('all').onchange = refresh;
+for (const id of ['all', 'unlisted', 'sort', 'minScore']) $(id).onchange = refresh;
+$('dialog').onclick = (e) => { if (e.target === $('dialog')) $('dialog').close(); };
 refresh();
 setInterval(refresh, 4000);
 </script>
