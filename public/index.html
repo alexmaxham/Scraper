@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Best Buy new images</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#16181d; --muted:#667085; --line:#e3e6eb; --accent:#0046be; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#191c22; --text:#eceef2; --muted:#98a2b3; --line:#2a2f38; --accent:#6ea0ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui, sans-serif; }
+  header { padding:20px 16px 12px; max-width:1200px; margin:0 auto; }
+  h1 { margin:0 0 4px; font-size:22px; }
+  #status { color:var(--muted); }
+  .bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:14px; }
+  button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  label { color:var(--muted); display:flex; gap:6px; align-items:center; }
+  progress { width:100%; height:6px; margin-top:12px; }
+  main { max-width:1200px; margin:0 auto; padding:8px 16px 40px; }
+  h2 { font-size:14px; color:var(--muted); font-weight:600; margin:22px 0 10px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; text-decoration:none; color:inherit; }
+  .card img { width:100%; aspect-ratio:1; object-fit:contain; background:#fff; display:block; }
+  .card div { padding:8px 10px; font-size:13px; }
+  .card small { color:var(--muted); display:block; }
+  .empty { color:var(--muted); padding:40px 0; text-align:center; }
+  .error { color:#d92d20; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Best Buy new images</h1>
+  <div id="status">Loading…</div>
+  <div class="bar">
+    <button id="scan">Scan now</button>
+    <label><input type="checkbox" id="all"> Also show images that were already there on first check</label>
+  </div>
+  <progress id="progress" max="1" value="0" hidden></progress>
+</header>
+<main id="main"></main>
+<script>
+const $ = (id) => document.getElementById(id);
+const time = (t) => new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+let lastKey = '';
+
+async function refresh() {
+  const s = await (await fetch('/api/status')).json();
+  const parts = [];
+  if (s.running && s.progress) {
+    const p = s.progress;
+    parts.push(`Scanning SKUs ${p.from.toLocaleString()}–${p.to.toLocaleString()}: ${p.checked.toLocaleString()} of ${p.total.toLocaleString()} checked, ${p.newImages} new so far`);
+    $('progress').hidden = false;
+    $('progress').value = p.total ? p.checked / p.total : 0;
+  } else {
+    $('progress').hidden = true;
+    if (s.lastScan) parts.push(`Last scan finished ${time(s.lastScan.finishedAt)} and found ${s.lastScan.newImages} new`);
+    if (s.nextScanAt) parts.push(`next scan ${time(s.nextScanAt)}`);
+  }
+  parts.push(`${s.counts.new} new images tracked in total`);
+  $('status').innerHTML = parts.join(' · ') + (s.lastError ? `<div class="error">Last scan stopped early: ${s.lastError}</div>` : '');
+  $('scan').disabled = s.running;
+
+  const key = [s.counts.new, s.counts.baseline, $('all').checked].join();
+  if (key !== lastKey) { lastKey = key; await loadImages(s); }
+}
+
+async function loadImages(s) {
+  const data = await (await fetch('/api/images' + ($('all').checked ? '?all=1' : ''))).json();
+  const main = $('main');
+  main.textContent = '';
+  if (!data.images.length) {
+    main.innerHTML = `<div class="empty">No new images yet. The first scan of a SKU range only records what is already on the server; an image counts as new when it appears on a later scan.</div>`;
+    return;
+  }
+  const groups = new Map();
+  for (const img of data.images) {
+    const day = new Date(img.firstSeen).toLocaleDateString([], { dateStyle: 'full' });
+    if (!groups.has(day)) groups.set(day, []);
+    groups.get(day).push(img);
+  }
+  for (const [day, imgs] of groups) {
+    const h = document.createElement('h2');
+    h.textContent = `${day} — ${imgs.length}`;
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    for (const img of imgs) {
+      const a = document.createElement('a');
+      a.className = 'card'; a.href = img.product; a.target = '_blank'; a.rel = 'noreferrer';
+      a.innerHTML = `<img loading="lazy" src="${img.image}" alt="SKU ${img.sku}"><div>SKU ${img.sku}<small>${img.isNew ? 'First seen ' + time(img.firstSeen) : 'Already there'}</small></div>`;
+      grid.append(a);
+    }
+    main.append(h, grid);
+  }
+}
+
+$('scan').onclick = async () => { await fetch('/api/scan', { method: 'POST' }); refresh(); };
+$('all').onchange = refresh;
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>
