@@ -12,11 +12,15 @@ const num = (name, fallback) => (process.env[name] ? Number(process.env[name]) :
 const config = {
   port: num('PORT', 3000),
   dataFile: process.env.DATA_FILE || path.join(__dirname, 'data', 'bestbuy.json'),
-  // Roughly where Best Buy's newest (8-digit) SKUs were in November 2026. Only matters
-  // for the first scan; after that the window follows the images found.
-  startSku: num('START_SKU', 13250000),
-  lookback: num('LOOKBACK', 5000),
-  lookahead: num('LOOKAHEAD', 15000),
+  // Best Buy's own stock uses 7-digit SKUs, which had reached about 6,696,000
+  // in November 2026 and grow by roughly 125 a day. SKUs there are created
+  // well before their image arrives, so the window reaches a long way back.
+  // (Third-party marketplace listings use 8-digit SKUs, about 13,260,000 at
+  // the same date.) Only matters for the first scan; after that the window
+  // follows the images found.
+  startSku: num('START_SKU', 6696000),
+  lookback: num('LOOKBACK', 20000),
+  lookahead: num('LOOKAHEAD', 3000),
   requestIntervalMs: num('REQUEST_INTERVAL_MS', 150),
   concurrency: num('CONCURRENCY', 4),
   scanEveryMinutes: num('SCAN_EVERY_MINUTES', 360),
